@@ -48,6 +48,7 @@ export default function App() {
   const [active, setActive] = useState("Monday");
   const [logging, setLogging] = useState(false);
   const [activeSets, setActiveSets] = useState({});
+  const [setCount, setSetCount] = useState({});
   const [tab, setTab] = useState("today");
   const [selectedEx, setSelectedEx] = useState("");
   const [history, setHistory] = useState([]);
@@ -79,10 +80,19 @@ export default function App() {
     setActive(d);
     setLogging(false);
     setActiveSets({});
+    setSetCount({});
   }
 
   function updateSet(key, value) {
     setActiveSets(prev => ({ ...prev, [key]: value }));
+  }
+
+  function addSet(ei) {
+    setSetCount(prev => ({ ...prev, [ei]: (prev[ei] || 3) + 1 }));
+  }
+
+  function getSetCount(ei) {
+    return setCount[ei] || 3;
   }
 
   async function saveWorkout() {
@@ -94,10 +104,10 @@ export default function App() {
       emoji: day.emoji,
       exercises: day.exercises.map((ex, ei) => ({
         name: ex,
-        sets: [0, 1, 2].map(si => ({
+        sets: Array.from({ length: getSetCount(ei) }, (_, si) => ({
           weight: parseFloat(activeSets[`${ei}-${si}-w`]) || 0,
           reps: parseInt(activeSets[`${ei}-${si}-r`]) || 0,
-          done: activeSets[`${ei}-${si}-done`] || false,
+          done: !!(activeSets[`${ei}-${si}-w`] || activeSets[`${ei}-${si}-r`]),
         }))
       }))
     };
@@ -112,14 +122,12 @@ export default function App() {
       exercises: entry.exercises,
     });
 
-    if (error) {
-      console.error('Error saving workout:', error);
-      return;
-    }
+    if (error) { console.error('Error saving workout:', error); return; }
 
     setHistory(prev => [entry, ...prev]);
     setLogging(false);
     setActiveSets({});
+    setSetCount({});
   }
 
   // Progress data
@@ -206,30 +214,73 @@ export default function App() {
           <div style={{ padding: "16px" }}>
             {logging ? (
               <>
-                <button onClick={() => { setLogging(false); setActiveSets({}); }} style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#888", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", marginBottom: "14px" }}>
+                <button onClick={() => { setLogging(false); setActiveSets({}); setSetCount({}); }} style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#888", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", marginBottom: "14px" }}>
                   ← Back
                 </button>
+
                 {day.exercises.map((ex, ei) => (
                   <div key={ei} style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "14px 16px", marginBottom: "10px" }}>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.1rem", color: accentColor, marginBottom: "12px", letterSpacing: "0.05em" }}>{ex}</div>
+
+                    {/* Column headers */}
                     <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-                      {["SET","WEIGHT (LBS)","REPS","✓"].map((h, i) => (
-                        <span key={i} style={{ flex: i === 0 || i === 3 ? 1 : 2, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>{h}</span>
-                      ))}
+                      <span style={{ flex: 1, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>SET</span>
+                      <span style={{ flex: 2, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>WEIGHT (LBS)</span>
+                      <span style={{ flex: 2, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>REPS</span>
                     </div>
-                    {[0, 1, 2].map(si => (
-                      <div key={si} style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" }}>
-                        <span style={{ flex: 1, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>{si + 1}</span>
-                        <input type="number" min="0" placeholder="0" value={activeSets[`${ei}-${si}-w`] || ""} onChange={e => updateSet(`${ei}-${si}-w`, e.target.value)}
-                          style={{ flex: 2, padding: "7px 4px", textAlign: "center", border: "1px solid #2a2a2a", borderRadius: "6px", background: "#0d0d0d", color: "#ccc", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem" }} />
-                        <input type="number" min="0" placeholder="0" value={activeSets[`${ei}-${si}-r`] || ""} onChange={e => updateSet(`${ei}-${si}-r`, e.target.value)}
-                          style={{ flex: 2, padding: "7px 4px", textAlign: "center", border: "1px solid #2a2a2a", borderRadius: "6px", background: "#0d0d0d", color: "#ccc", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem" }} />
-                        <input type="checkbox" checked={activeSets[`${ei}-${si}-done`] || false} onChange={e => updateSet(`${ei}-${si}-done`, e.target.checked)}
-                          style={{ flex: 1, accentColor: accentColor, width: "18px", height: "18px", cursor: "pointer" }} />
-                      </div>
-                    ))}
+
+                    {/* Sets */}
+                    {Array.from({ length: getSetCount(ei) }, (_, si) => {
+                      const hasData = activeSets[`${ei}-${si}-w`] || activeSets[`${ei}-${si}-r`];
+                      return (
+                        <div key={si} style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" }}>
+                          <span style={{
+                            flex: 1, textAlign: "center", fontSize: "0.75rem",
+                            fontFamily: "'DM Sans', sans-serif",
+                            color: hasData ? accentColor : "#444",
+                            fontWeight: hasData ? 600 : 400,
+                          }}>{si + 1}</span>
+                          <input type="number" min="0" placeholder="0"
+                            value={activeSets[`${ei}-${si}-w`] || ""}
+                            onChange={e => updateSet(`${ei}-${si}-w`, e.target.value)}
+                            style={{
+                              flex: 2, padding: "7px 4px", textAlign: "center",
+                              border: `1px solid ${hasData ? accentColor + '66' : "#2a2a2a"}`,
+                              borderRadius: "6px", background: "#0d0d0d", color: "#ccc",
+                              fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem",
+                            }}
+                          />
+                          <input type="number" min="0" placeholder="0"
+                            value={activeSets[`${ei}-${si}-r`] || ""}
+                            onChange={e => updateSet(`${ei}-${si}-r`, e.target.value)}
+                            style={{
+                              flex: 2, padding: "7px 4px", textAlign: "center",
+                              border: `1px solid ${hasData ? accentColor + '66' : "#2a2a2a"}`,
+                              borderRadius: "6px", background: "#0d0d0d", color: "#ccc",
+                              fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem",
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Add set button */}
+                    <button
+                      onClick={() => addSet(ei)}
+                      style={{
+                        width: "100%", marginTop: "10px", padding: "8px",
+                        background: "transparent",
+                        border: `1px dashed ${accentColor}44`,
+                        color: accentColor, borderRadius: "6px",
+                        fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem",
+                        cursor: "pointer", letterSpacing: "0.05em",
+                      }}
+                    >
+                      + Add Set
+                    </button>
                   </div>
                 ))}
+
                 <button onClick={saveWorkout} style={{ width: "100%", padding: "16px", marginTop: "8px", background: `${accentColor}1a`, border: `1px solid ${accentColor}`, color: accentColor, fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: "0.1em", borderRadius: "10px", cursor: "pointer" }}>
                   ✓ LOG WORKOUT
                 </button>
