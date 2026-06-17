@@ -45,6 +45,13 @@ const chartOptions = () => ({
 });
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
   const [active, setActive] = useState("Monday");
   const [logging, setLogging] = useState(false);
   const [activeSets, setActiveSets] = useState({});
@@ -55,12 +62,28 @@ export default function App() {
 
   const day = workoutData[active];
 
+  // Check for existing session on load
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load workouts when user is available
+  useEffect(() => {
+    if (!user) return;
     async function loadWorkouts() {
       const { data } = await supabase
         .from('workouts')
         .select('*')
-        .eq('user_id', 'barry')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (data) {
         setHistory(data.map(row => ({
@@ -74,7 +97,20 @@ export default function App() {
       }
     }
     loadWorkouts();
-  }, []);
+  }, [user]);
+
+  async function handleLogin() {
+    setAuthError('');
+    setAuthSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setAuthError(error.message);
+    setAuthSubmitting(false);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setHistory([]);
+  }
 
   function switchDay(d) {
     setActive(d);
@@ -113,7 +149,7 @@ export default function App() {
     };
 
     const { error } = await supabase.from('workouts').insert({
-      user_id: 'barry',
+      user_id: user.id,
       date: entry.date,
       day_name: entry.dayName,
       name: entry.name,
@@ -160,6 +196,58 @@ export default function App() {
 
   const accentColor = day.color;
 
+  // Loading state
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#333", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", letterSpacing: "0.15em" }}>LOADING...</div>
+      </div>
+    );
+  }
+
+  // Login screen
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "3rem", color: "#FF6B35", letterSpacing: "0.1em", marginBottom: "4px" }}>WORKOUT TRACKER</div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#333", letterSpacing: "0.2em", marginBottom: "48px" }}>SIGN IN TO CONTINUE</div>
+
+        <div style={{ width: "100%", maxWidth: "360px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={{ padding: "14px 16px", background: "#161616", border: "1px solid #2a2a2a", borderRadius: "8px", color: "#ccc", fontFamily: "'DM Sans', sans-serif", fontSize: "0.95rem", outline: "none" }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={{ padding: "14px 16px", background: "#161616", border: "1px solid #2a2a2a", borderRadius: "8px", color: "#ccc", fontFamily: "'DM Sans', sans-serif", fontSize: "0.95rem", outline: "none" }}
+          />
+
+          {authError && (
+            <div style={{ color: "#ff4444", fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", textAlign: "center" }}>
+              {authError}
+            </div>
+          )}
+
+          <button
+            onClick={handleLogin}
+            disabled={authSubmitting}
+            style={{ padding: "14px", background: "#FF6B351a", border: "1px solid #FF6B35", color: "#FF6B35", fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: "0.1em", borderRadius: "8px", cursor: authSubmitting ? "not-allowed" : "pointer", opacity: authSubmitting ? 0.6 : 1, marginTop: "4px" }}
+          >
+            {authSubmitting ? "SIGNING IN..." : "SIGN IN"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", display: "flex", flexDirection: "column", maxWidth: "640px", margin: "0 auto" }}>
 
@@ -177,6 +265,9 @@ export default function App() {
             {t.toUpperCase()}
           </button>
         ))}
+        <button onClick={handleLogout} style={{ padding: "14px 12px", background: "transparent", border: "none", color: "#333", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", cursor: "pointer", letterSpacing: "0.05em" }}>
+          OUT
+        </button>
       </div>
 
       {/* TODAY */}
@@ -222,14 +313,12 @@ export default function App() {
                   <div key={ei} style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "14px 16px", marginBottom: "10px" }}>
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.1rem", color: accentColor, marginBottom: "12px", letterSpacing: "0.05em" }}>{ex}</div>
 
-                    {/* Column headers */}
                     <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                       <span style={{ flex: 1, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>SET</span>
                       <span style={{ flex: 2, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>WEIGHT (LBS)</span>
                       <span style={{ flex: 2, textAlign: "center", fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif" }}>REPS</span>
                     </div>
 
-                    {/* Sets */}
                     {Array.from({ length: getSetCount(ei) }, (_, si) => {
                       const hasData = activeSets[`${ei}-${si}-w`] || activeSets[`${ei}-${si}-r`];
                       return (
@@ -264,7 +353,6 @@ export default function App() {
                       );
                     })}
 
-                    {/* Add set button */}
                     <button
                       onClick={() => addSet(ei)}
                       style={{
