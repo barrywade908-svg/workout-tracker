@@ -44,7 +44,22 @@ const chartOptions = () => ({
   },
 });
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  );
+  useEffect(() => {
+    function handleResize() {
+      setIsDesktop(window.innerWidth >= 1024);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isDesktop;
+}
+
 export default function App() {
+  const isDesktop = useIsDesktop();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -208,7 +223,7 @@ export default function App() {
   // Login screen
   if (!user) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
         <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "3rem", color: "#FF6B35", letterSpacing: "0.1em", marginBottom: "4px" }}>WORKOUT TRACKER</div>
         <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.8rem", color: "#333", letterSpacing: "0.2em", marginBottom: "48px" }}>SIGN IN TO CONTINUE</div>
 
@@ -248,27 +263,70 @@ export default function App() {
     );
   }
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", display: "flex", flexDirection: "column", maxWidth: "640px", margin: "0 auto" }}>
+  const navItems = ["today", "history", "progress"];
 
-      {/* Nav */}
-      <div style={{ display: "flex", borderBottom: "1px solid #1f1f1f", background: "#0d0d0d", position: "sticky", top: 0, zIndex: 20 }}>
-        {["today", "history", "progress"].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex: 1, padding: "14px 8px",
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.1em",
-            color: tab === t ? accentColor : "#444",
-            background: "transparent", border: "none",
-            borderBottom: `2px solid ${tab === t ? accentColor : "transparent"}`,
-            cursor: "pointer",
-          }}>
-            {t.toUpperCase()}
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#0d0d0d", color: "#fff",
+      display: "flex",
+      flexDirection: isDesktop ? "row" : "column",
+      maxWidth: isDesktop ? "1280px" : "640px",
+      margin: "0 auto",
+    }}>
+
+      {/* Nav: sidebar on desktop, top bar on mobile */}
+      {isDesktop ? (
+        <div style={{
+          width: "220px", flexShrink: 0,
+          borderRight: "1px solid #1f1f1f",
+          display: "flex", flexDirection: "column",
+          padding: "28px 0", position: "sticky", top: 0,
+          height: "100vh",
+        }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.4rem", color: "#FF6B35", letterSpacing: "0.08em", padding: "0 24px", marginBottom: "32px" }}>
+            WORKOUT
+          </div>
+          {navItems.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              textAlign: "left",
+              padding: "14px 24px",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.1rem", letterSpacing: "0.1em",
+              color: tab === t ? accentColor : "#444",
+              background: tab === t ? `${accentColor}14` : "transparent",
+              border: "none",
+              borderLeft: `3px solid ${tab === t ? accentColor : "transparent"}`,
+              cursor: "pointer",
+            }}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button onClick={handleLogout} style={{ padding: "14px 24px", textAlign: "left", background: "transparent", border: "none", color: "#444", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", cursor: "pointer", letterSpacing: "0.05em" }}>
+            SIGN OUT
           </button>
-        ))}
-        <button onClick={handleLogout} style={{ padding: "14px 12px", background: "transparent", border: "none", color: "#333", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", cursor: "pointer", letterSpacing: "0.05em" }}>
-          OUT
-        </button>
-      </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", borderBottom: "1px solid #1f1f1f", background: "#0d0d0d", position: "sticky", top: 0, zIndex: 20 }}>
+          {navItems.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, padding: "14px 8px",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.1em",
+              color: tab === t ? accentColor : "#444",
+              background: "transparent", border: "none",
+              borderBottom: `2px solid ${tab === t ? accentColor : "transparent"}`,
+              cursor: "pointer",
+            }}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+          <button onClick={handleLogout} style={{ padding: "14px 12px", background: "transparent", border: "none", color: "#333", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", cursor: "pointer", letterSpacing: "0.05em" }}>
+            OUT
+          </button>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div style={{ flex: 1, minWidth: 0 }}>
 
       {/* TODAY */}
       {tab === "today" && (
@@ -396,22 +454,28 @@ export default function App() {
           {history.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#333", fontFamily: "'DM Sans', sans-serif" }}>No workouts logged yet.</div>
           ) : (
-            history.map((entry, i) => (
-              <div key={i} style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "14px 16px", marginBottom: "10px" }}>
-                <div style={{ fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif", marginBottom: "4px" }}>{entry.date}</div>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", color: entry.color, marginBottom: "8px" }}>{entry.emoji} {entry.name.toUpperCase()}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {entry.exercises.map((ex, ei) => {
-                    const vol = ex.sets.reduce((a, s) => a + (s.weight * s.reps), 0);
-                    return (
-                      <span key={ei} style={{ fontSize: "0.75rem", background: "#1f1f1f", borderRadius: "20px", padding: "3px 10px", color: "#666", fontFamily: "'DM Sans', sans-serif" }}>
-                        {ex.name}{vol ? ` · ${Math.round(vol).toLocaleString()} lbs` : ""}
-                      </span>
-                    );
-                  })}
+            <div style={{
+              display: isDesktop ? "grid" : "block",
+              gridTemplateColumns: isDesktop ? "repeat(2, 1fr)" : undefined,
+              gap: isDesktop ? "10px" : 0,
+            }}>
+              {history.map((entry, i) => (
+                <div key={i} style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "14px 16px", marginBottom: isDesktop ? 0 : "10px" }}>
+                  <div style={{ fontSize: "0.75rem", color: "#444", fontFamily: "'DM Sans', sans-serif", marginBottom: "4px" }}>{entry.date}</div>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", color: entry.color, marginBottom: "8px" }}>{entry.emoji} {entry.name.toUpperCase()}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {entry.exercises.map((ex, ei) => {
+                      const vol = ex.sets.reduce((a, s) => a + (s.weight * s.reps), 0);
+                      return (
+                        <span key={ei} style={{ fontSize: "0.75rem", background: "#1f1f1f", borderRadius: "20px", padding: "3px 10px", color: "#666", fontFamily: "'DM Sans', sans-serif" }}>
+                          {ex.name}{vol ? ` · ${Math.round(vol).toLocaleString()} lbs` : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -432,34 +496,42 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.08em", color: "#555", marginBottom: "12px" }}>WORKOUTS PER WEEK</div>
-            <div style={{ position: "relative", height: "200px" }}>
-              {freqLabels.length > 0 ? (
-                <Bar data={{ labels: freqLabels, datasets: [{ data: freqData, backgroundColor: `${accentColor}44`, borderColor: accentColor, borderWidth: 1.5 }] }} options={chartOptions()} />
+          <div style={{
+            display: isDesktop ? "grid" : "block",
+            gridTemplateColumns: isDesktop ? "1fr 1fr" : undefined,
+            gap: isDesktop ? "12px" : 0,
+          }}>
+            <div style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.08em", color: "#555", marginBottom: "12px" }}>WORKOUTS PER WEEK</div>
+              <div style={{ position: "relative", height: "200px" }}>
+                {freqLabels.length > 0 ? (
+                  <Bar data={{ labels: freqLabels, datasets: [{ data: freqData, backgroundColor: `${accentColor}44`, borderColor: accentColor, borderWidth: 1.5 }] }} options={chartOptions()} />
+                ) : (
+                  <div style={{ textAlign: "center", paddingTop: "80px", color: "#333", fontFamily: "'DM Sans', sans-serif" }}>No data yet</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.08em", color: "#555", marginBottom: "12px" }}>EXERCISE VOLUME OVER TIME</div>
+              {allExercises.length > 0 ? (
+                <>
+                  <select value={currentEx} onChange={e => setSelectedEx(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid #2a2a2a", borderRadius: "6px", fontSize: "0.85rem", fontFamily: "'DM Sans', sans-serif", background: "#0d0d0d", color: "#aaa", marginBottom: "12px" }}>
+                    {allExercises.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+                  </select>
+                  <div style={{ position: "relative", height: "200px" }}>
+                    <Line data={{ labels: volLabels, datasets: [{ data: volData, borderColor: accentColor, backgroundColor: `${accentColor}18`, borderWidth: 2, tension: 0.35, fill: true, pointRadius: 5, pointBackgroundColor: accentColor }] }} options={chartOptions()} />
+                  </div>
+                </>
               ) : (
-                <div style={{ textAlign: "center", paddingTop: "80px", color: "#333", fontFamily: "'DM Sans', sans-serif" }}>No data yet</div>
+                <div style={{ textAlign: "center", padding: "80px 0", color: "#333", fontFamily: "'DM Sans', sans-serif" }}>Log workouts to see volume trends</div>
               )}
             </div>
           </div>
-
-          <div style={{ background: "#161616", border: "1px solid #1f1f1f", borderRadius: "10px", padding: "16px", marginBottom: "12px" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.08em", color: "#555", marginBottom: "12px" }}>EXERCISE VOLUME OVER TIME</div>
-            {allExercises.length > 0 ? (
-              <>
-                <select value={currentEx} onChange={e => setSelectedEx(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid #2a2a2a", borderRadius: "6px", fontSize: "0.85rem", fontFamily: "'DM Sans', sans-serif", background: "#0d0d0d", color: "#aaa", marginBottom: "12px" }}>
-                  {allExercises.map(ex => <option key={ex} value={ex}>{ex}</option>)}
-                </select>
-                <div style={{ position: "relative", height: "200px" }}>
-                  <Line data={{ labels: volLabels, datasets: [{ data: volData, borderColor: accentColor, backgroundColor: `${accentColor}18`, borderWidth: 2, tension: 0.35, fill: true, pointRadius: 5, pointBackgroundColor: accentColor }] }} options={chartOptions()} />
-                </div>
-              </>
-            ) : (
-              <div style={{ textAlign: "center", padding: "80px 0", color: "#333", fontFamily: "'DM Sans', sans-serif" }}>Log workouts to see volume trends</div>
-            )}
-          </div>
         </div>
       )}
+
+      </div>
 
     </div>
   );
