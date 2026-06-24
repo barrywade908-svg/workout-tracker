@@ -174,7 +174,7 @@ export default function App() {
     });
 
     setGeneratedWorkout({
-      label: "GEN", focus: "Custom Workout", emoji: "🎲", color: "#9B5DE5",
+      label: "GEN", focus: selectedGroups.join(" & "), emoji: "🎲", color: "#9B5DE5",
       exercises,
     });
     setGeneratorOpen(false);
@@ -448,7 +448,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.6rem", color: accentColor, lineHeight: 1 }}>{day.focus.toUpperCase()}</div>
-                <div style={{ fontSize: "1rem", color: "#666", fontFamily: "'DM Sans', sans-serif", fontWeight: 300, marginTop: "4px" }}>{generatedWorkout ? selectedGroups.join(" + ").toUpperCase() : active.toUpperCase()}</div>
+                <div style={{ fontSize: "1rem", color: "#666", fontFamily: "'DM Sans', sans-serif", fontWeight: 300, marginTop: "4px" }}>{generatedWorkout ? "GENERATED" : active.toUpperCase()}</div>
                 <div style={{ display: "inline-block", background: `${accentColor}26`, border: `1px solid ${accentColor}66`, color: accentColor, borderRadius: "20px", padding: "3px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, marginTop: "10px" }}>
                   {day.exercises.length} EXERCISES
                 </div>
