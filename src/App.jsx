@@ -34,6 +34,18 @@ const workoutData = {
 
 const days = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
 
+const EXERCISE_LIBRARY = {
+  Chest: ["Flat Press Machine","Incline Dumbbell Press","Chest Flies","Dips","Cable Crossover","Push-ups","High Low Cables","Decline Press"],
+  Back: ["Wide Grip Lat Pulldown","Bent Over Rows","Seated Chest Supported Row","Pullovers","T-Bar Row","Single Arm Dumbbell Row","Seated Cable Row","Face Pulls"],
+  Shoulders: ["Smith Machine Shoulder Press","Lat Raises","Shoulder Press","Dumbbell Shrugs","Smith Machine Shrugs","Front Raises","Arnold Press","Reverse Pec Deck"],
+  Triceps: ["Overhead Tricep Extension","Straight Bar Pushdowns","Dips","Rope Pushdowns","Skull Crushers","Close Grip Bench Press","Diamond Push-ups","Tricep Kickbacks"],
+  Biceps: ["Incline Curls","Cross Body Hammer Curls","Dumbbell Curls","Cable Curls","Preacher Curls","Concentration Curls","Cable Hammer Curls","Bayesian Curls"],
+  Legs: ["Squats","Leg Extension","Leg Curl","Calf Raises","RDLs","Leg Press","Walking Lunges","Hip Thrusts"],
+};
+
+const MUSCLE_GROUPS = ["Chest","Back","Shoulders","Triceps","Biceps","Legs"];
+const GENERATED_TOTAL_EXERCISES = 8;
+
 const chartOptions = () => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -75,7 +87,11 @@ export default function App() {
   const [selectedEx, setSelectedEx] = useState("");
   const [history, setHistory] = useState([]);
 
-  const day = workoutData[active];
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [generatedWorkout, setGeneratedWorkout] = useState(null);
+
+  const day = generatedWorkout || workoutData[active];
 
   // Check for existing session on load
   useEffect(() => {
@@ -132,6 +148,46 @@ export default function App() {
     setLogging(false);
     setActiveSets({});
     setSetCount({});
+    setGeneratedWorkout(null);
+  }
+
+  function toggleGroup(g) {
+    setSelectedGroups(prev =>
+      prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]
+    );
+  }
+
+  function generateWorkout() {
+    if (selectedGroups.length === 0) return;
+
+    const perGroup = Math.floor(GENERATED_TOTAL_EXERCISES / selectedGroups.length);
+    let exercises = [];
+
+    selectedGroups.forEach(group => {
+      const pool = [...EXERCISE_LIBRARY[group]];
+      // Shuffle pool
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      exercises.push(...pool.slice(0, perGroup));
+    });
+
+    setGeneratedWorkout({
+      label: "GEN", focus: "Custom Workout", emoji: "🎲", color: "#9B5DE5",
+      exercises,
+    });
+    setGeneratorOpen(false);
+    setActiveSets({});
+    setSetCount({});
+  }
+
+  function clearGeneratedWorkout() {
+    setGeneratedWorkout(null);
+    setSelectedGroups([]);
+    setLogging(false);
+    setActiveSets({});
+    setSetCount({});
   }
 
   function updateSet(key, value) {
@@ -149,7 +205,7 @@ export default function App() {
   async function saveWorkout() {
     const entry = {
       date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }),
-      dayName: active,
+      dayName: generatedWorkout ? "Generated" : active,
       name: day.focus,
       color: day.color,
       emoji: day.emoji,
@@ -179,6 +235,7 @@ export default function App() {
     setLogging(false);
     setActiveSets({});
     setSetCount({});
+    setGeneratedWorkout(null);
   }
 
   // Progress data
@@ -328,15 +385,70 @@ export default function App() {
       {/* Main content area */}
       <div style={{ flex: 1, minWidth: 0 }}>
 
+      {/* GENERATOR — muscle group picker */}
+      {tab === "today" && generatorOpen && (
+        <div style={{ padding: "24px 16px" }}>
+          <button onClick={() => setGeneratorOpen(false)} style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#888", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", marginBottom: "20px" }}>
+            ← Cancel
+          </button>
+
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.8rem", color: "#9B5DE5", letterSpacing: "0.05em", marginBottom: "6px" }}>
+            PICK MUSCLE GROUPS
+          </div>
+          <div style={{ fontSize: "0.85rem", color: "#666", fontFamily: "'DM Sans', sans-serif", marginBottom: "20px" }}>
+            8 exercises total, split evenly across your picks.
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(3, 1fr)" : "repeat(2, 1fr)", gap: "10px", marginBottom: "24px" }}>
+            {MUSCLE_GROUPS.map(g => {
+              const isSelected = selectedGroups.includes(g);
+              return (
+                <button key={g} onClick={() => toggleGroup(g)} style={{
+                  padding: "18px 10px",
+                  background: isSelected ? "#9B5DE51a" : "#161616",
+                  border: `1px solid ${isSelected ? "#9B5DE5" : "#2a2a2a"}`,
+                  color: isSelected ? "#9B5DE5" : "#888",
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.05em",
+                  borderRadius: "8px", cursor: "pointer",
+                }}>
+                  {g.toUpperCase()}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedGroups.length > 0 && (
+            <div style={{ fontSize: "0.8rem", color: "#555", fontFamily: "'DM Sans', sans-serif", marginBottom: "14px", textAlign: "center" }}>
+              {Math.floor(GENERATED_TOTAL_EXERCISES / selectedGroups.length)} exercise{Math.floor(GENERATED_TOTAL_EXERCISES / selectedGroups.length) !== 1 ? "s" : ""} per group · {Math.floor(GENERATED_TOTAL_EXERCISES / selectedGroups.length) * selectedGroups.length} total
+            </div>
+          )}
+
+          <button
+            onClick={generateWorkout}
+            disabled={selectedGroups.length === 0}
+            style={{
+              width: "100%", padding: "16px",
+              background: selectedGroups.length === 0 ? "#1a1a1a" : "#9B5DE51a",
+              border: `1px solid ${selectedGroups.length === 0 ? "#2a2a2a" : "#9B5DE5"}`,
+              color: selectedGroups.length === 0 ? "#444" : "#9B5DE5",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.2rem", letterSpacing: "0.1em",
+              borderRadius: "10px", cursor: selectedGroups.length === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            GENERATE
+          </button>
+        </div>
+      )}
+
       {/* TODAY */}
-      {tab === "today" && (
+      {tab === "today" && !generatorOpen && (
         <>
           <div style={{ background: `linear-gradient(135deg, #111 60%, ${accentColor}26)`, borderBottom: "1px solid #1f1f1f", padding: "28px 20px 20px" }}>
-            <p style={{ fontSize: "0.7rem", letterSpacing: "0.25em", color: "#444", marginBottom: "6px", fontFamily: "'DM Sans', sans-serif" }}>WEEKLY TRAINING PLAN</p>
+            <p style={{ fontSize: "0.7rem", letterSpacing: "0.25em", color: "#444", marginBottom: "6px", fontFamily: "'DM Sans', sans-serif" }}>{generatedWorkout ? "ON-DEMAND WORKOUT" : "WEEKLY TRAINING PLAN"}</p>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "2.6rem", color: accentColor, lineHeight: 1 }}>{day.focus.toUpperCase()}</div>
-                <div style={{ fontSize: "1rem", color: "#666", fontFamily: "'DM Sans', sans-serif", fontWeight: 300, marginTop: "4px" }}>{active.toUpperCase()}</div>
+                <div style={{ fontSize: "1rem", color: "#666", fontFamily: "'DM Sans', sans-serif", fontWeight: 300, marginTop: "4px" }}>{generatedWorkout ? selectedGroups.join(" + ").toUpperCase() : active.toUpperCase()}</div>
                 <div style={{ display: "inline-block", background: `${accentColor}26`, border: `1px solid ${accentColor}66`, color: accentColor, borderRadius: "20px", padding: "3px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 500, marginTop: "10px" }}>
                   {day.exercises.length} EXERCISES
                 </div>
@@ -345,7 +457,19 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "6px", padding: "14px 16px 0", background: "#0d0d0d" }}>
+          <div style={{ padding: "14px 16px 0", background: "#0d0d0d" }}>
+            {generatedWorkout ? (
+              <button onClick={clearGeneratedWorkout} style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid #2a2a2a", color: "#888", fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem", borderRadius: "6px", cursor: "pointer" }}>
+                ← Back to weekly plan
+              </button>
+            ) : (
+              <button onClick={() => { setGeneratorOpen(true); setSelectedGroups([]); }} style={{ width: "100%", padding: "10px", background: "#9B5DE51a", border: "1px solid #9B5DE5", color: "#9B5DE5", fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.08em", borderRadius: "6px", cursor: "pointer" }}>
+                🎲 GENERATE WORKOUT
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: generatedWorkout ? "none" : "flex", gap: "6px", padding: "14px 16px 0", background: "#0d0d0d" }}>
             {days.map(d => (
               <button key={d} onClick={() => switchDay(d)} style={{
                 flex: 1,
